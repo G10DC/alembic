@@ -128,3 +128,5 @@ material; preparing exam notes; producing LLM-ready context for self-quizzing.
   recall, `sieve` for what a context window can hold.
 - **Verbatim extraction or translation**: nothing here preserves original
   wording — the rubric rewrites by design.
+- **Parsing raw scans or image-only documents**: If the source text is an image or a scanned PDF, do not write custom OCR extraction logic. Instead, reference the guidelines and validation loops of `scribe` to handle preprocessing, schema validation, and field-level repairs before chunking.
+- **Parsing raw scans or image-only documents**: If the source text is an image or a scanned PDF, do not write custom OCR extraction logic. Instead, reference the guidelines and validation loops of `scribe` to handle preprocessing, schema validation, and field-level repairs before chunking.
