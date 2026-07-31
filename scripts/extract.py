@@ -107,35 +107,12 @@ def extract_pdf(path):
         full_text = "\n".join(page_texts)
         return split_by_regex_or_whole(full_text)
     
-    print(f"⚠️ No embedded text found in PDF. Falling back to OCR (Tesseract) on {len(doc)} pages...", flush=True)
-    import pytesseract
-    from PIL import Image
-    import io
-    from concurrent.futures import ThreadPoolExecutor
-    
-    def ocr_page(page_num):
-        try:
-            doc_local = fitz.open(str(path))
-            page = doc_local[page_num]
-            pix = page.get_pixmap(dpi=150)
-            img_data = pix.tobytes("png")
-            img = Image.open(io.BytesIO(img_data))
-            text = pytesseract.image_to_string(img, lang="ita")
-            doc_local.close()
-            return page_num, text
-        except Exception as e:
-            return page_num, f"OCR ERROR on page {page_num}: {str(e)}"
-            
-    results = {}
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(ocr_page, idx) for idx in range(len(doc))]
-        for fut in futures:
-            p_num, text = fut.result()
-            results[p_num] = text
-            
-    page_texts = [results[idx] for idx in range(len(doc))]
-    full_text = "\n".join(page_texts)
-    return split_by_regex_or_whole(full_text, method_if_split="pdf_ocr")
+    raise RuntimeError(
+        "Image-only/Scanned PDF detected. This format requires OCR. "
+        "As per the G10DC skill specification, alembic does not implement raw OCR. "
+        "Please delegate the document extraction to the 'scribe' skill for preprocessing, "
+        "verification, and repair, and then feed the resulting digital text directly into alembic."
+    )
 
 
 def extract_docx(path):
