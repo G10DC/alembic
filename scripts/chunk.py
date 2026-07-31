@@ -5,8 +5,10 @@ def word_count(text):
     return len(text.split())
 
 def main():
-    root = Path("/Users/gdc410/Desktop/TDC/work/extracted")
-    src_file = Path("/Users/gdc410/Desktop/TDC/work/extracted/sections/001_parte-di-chi-sta-dentro-e-di-chi-sta-fuori-l-autor.txt")
+    src_file = Path(
+        "/Users/gdc410/Desktop/TDC/work/extracted/sections/"
+        "001_parte-di-chi-sta-dentro-e-di-chi-sta-fuori-l-autor.txt"
+    )
     
     text = src_file.read_text(encoding="utf-8")
     paragraphs = text.split("\n\n")

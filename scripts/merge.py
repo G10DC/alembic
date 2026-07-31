@@ -25,7 +25,12 @@ def extract_terms_from_text(text, section_idx):
                 # Clean up definition
                 definition = re.sub(r"^[:\-–\s\=]+", "", definition).strip()
                 # Remove common Italian verbs like "è", "significa", "si definisce come" from starting the definition
-                definition = re.compile(r"^(si\s+definisce\s+come|significa|è|significano|sono|si\s+intende\s+per|si\s+riferisce\s+a)\s+", re.IGNORECASE).sub("", definition)
+                verbs_pattern = re.compile(
+                    r"^(si\s+definisce\s+come|significa|è|significano|"
+                    r"sono|si\s+intende\s+per|si\s+riferisce\s+a)\s+",
+                    re.IGNORECASE
+                )
+                definition = verbs_pattern.sub("", definition)
                 definition = definition.strip()
                 if definition and len(definition) > 3:
                     if term not in terms:
