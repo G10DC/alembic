@@ -1,4 +1,4 @@
-import json
+import argparse
 import re
 from pathlib import Path
 
@@ -39,9 +39,16 @@ def extract_terms_from_text(text, section_idx):
     return terms
 
 def main():
-    condensed_dir = Path("/Users/gdc410/Desktop/TDC/work/condensed")
-    output_file = Path("/Users/gdc410/Desktop/TDC/work/output_merged.md")
-    
+    parser = argparse.ArgumentParser(
+        description="Merge condensed chunk_*.md files into one study guide with a TOC and glossary."
+    )
+    parser.add_argument("condensed_dir", help="Directory containing chunk_<N>.md files")
+    parser.add_argument("--output", required=True, help="Path to write the merged Markdown file")
+    args = parser.parse_args()
+
+    condensed_dir = Path(args.condensed_dir)
+    output_file = Path(args.output)
+
     chunk_files = sorted(list(condensed_dir.glob("chunk_*.md")), key=lambda p: int(p.stem.split("_")[1]))
     
     sections_text = []

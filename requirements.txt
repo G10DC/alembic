@@ -1,0 +1,9 @@
+# scripts/extract.py imports these lazily, per file type actually encountered:
+#   PDF   -> import fitz          (package name: PyMuPDF -- NOT "pypdf", a different library)
+#   DOCX  -> import docx          (package name: python-docx)
+#   EPUB  -> import ebooklib, bs4 (package names: EbookLib, beautifulsoup4; bs4 uses the lxml parser)
+PyMuPDF>=1.24
+python-docx>=1.1
+ebooklib>=0.18
+beautifulsoup4>=4.12
+lxml>=5.0

@@ -8,22 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Validate SKILL.md against g10dc canon
+        run: node .github/validate-skill.mjs .
+      - uses: actions/setup-python@v5
         with:
-          node-version: 22
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            npm install --ignore-scripts || true
-          else
-            echo "No package.json found, skipping npm install"
-          fi
+        run: pip install -r requirements.txt
       - name: Run tests
-        run: |
-          if [ -f package.json ]; then
-            npm test || true
-          else
-            echo "No package.json found, skipping tests"
-          fi
+        run: python -m unittest discover -s tests -v

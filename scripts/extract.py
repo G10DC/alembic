@@ -18,8 +18,8 @@ Output:
                               "regex_chapter" | "markdown_header" |
                               "epub_spine" | "single_section"}]
 
-Dependencies (install first):
-    pip install --break-system-packages pypdf python-docx ebooklib beautifulsoup4 lxml
+Dependencies (install first): see ../requirements.txt
+    pip install -r requirements.txt
 """
 
 import argparse

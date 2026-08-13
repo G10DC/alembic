@@ -1,6 +1,6 @@
 ---
 name: alembic
-description: Distills an entire book or textbook (PDF, EPUB, DOCX, TXT, Markdown) into a dense Markdown study guide that keeps every concept, key term, definition and the author's own emphasis while cutting verbosity. Splits the source into sections, condenses each with a dedicated sub-agent, then verifies keyword coverage against the original. Use for textbooks, dispense, manuali, lecture notes, exam prep, and any request to condense, riassumere or sintetizzare a book into study notes or LLM-ready context for Socratic questioning. Never write a narrative summary; never drop a term the source repeats or emphasizes.
+description: Distills a book or textbook (PDF, EPUB, DOCX, TXT, Markdown) into a dense Markdown study guide that keeps every concept, key term, and definition while cutting verbosity. Splits the source into sections, condenses each, then verifies keyword coverage against the original. Use for textbooks, lecture notes, or exam prep -- condensare/riassumere a book into study notes. Never write a narrative summary; never drop a term the source repeats or emphasizes.
 ---
 
 # alembic
