@@ -15,8 +15,26 @@ Usage:
 import argparse
 import json
 import re
+import sys
 from collections import Counter
 from pathlib import Path
+
+
+def _force_utf8_stdio():
+    """Windows consoles default to a legacy code page (cp1252), on which any
+    emoji in a print() raises UnicodeEncodeError and aborts the run. Re-encode
+    the streams rather than dropping the characters."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
+_force_utf8_stdio()
+
 
 STOPWORDS = set(
     """

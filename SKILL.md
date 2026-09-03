@@ -129,4 +129,7 @@ material; preparing exam notes; producing LLM-ready context for self-quizzing.
 - **Verbatim extraction or translation**: nothing here preserves original
   wording — the rubric rewrites by design.
 - **Parsing raw scans or image-only documents**: If the source text is an image or a scanned PDF, do not write custom OCR extraction logic. Instead, reference the guidelines and validation loops of `scribe` to handle preprocessing, schema validation, and field-level repairs before chunking.
-- **Parsing raw scans or image-only documents**: If the source text is an image or a scanned PDF, do not write custom OCR extraction logic. Instead, reference the guidelines and validation loops of `scribe` to handle preprocessing, schema validation, and field-level repairs before chunking.
+- **A video or a podcast**: `scripts/extract.py` reads documents, not media, and
+  a 30-minute talk is roughly 5,000 words — below the threshold above anyway.
+  Use `yt-digest` to obtain a timestamped transcript and selected frames, then
+  condense that if it is long enough to need chunking.
