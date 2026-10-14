@@ -123,12 +123,11 @@ material; preparing exam notes; producing LLM-ready context for self-quizzing.
 - **Short documents** (papers, articles, single chapters under ~3,000 words):
   the orchestration costs more than it returns — condense directly.
 - **Fitting text into a token budget**, where the goal is size rather than
-  study: use `sieve` instead. The distinction is the purpose of the resulting
-  text, not its length — `alembic` optimises for what a reader must be able to
-  recall, `sieve` for what a context window can hold.
+  study: summarise directly. `alembic` optimises for what a reader must be able
+  to recall, not for what a context window can hold.
 - **Verbatim extraction or translation**: nothing here preserves original
   wording — the rubric rewrites by design.
-- **Parsing raw scans or image-only documents**: If the source text is an image or a scanned PDF, do not write custom OCR extraction logic. Instead, reference the guidelines and validation loops of `scribe` to handle preprocessing, schema validation, and field-level repairs before chunking.
+- **Raw scans or image-only documents**: `scripts/extract.py` refuses them. Add a text layer first (`ocrmypdf --skip-text in.pdf out.pdf`, or have Claude transcribe the pages) and check the result before condensing.
 - **A video or a podcast**: `scripts/extract.py` reads documents, not media, and
   a 30-minute talk is roughly 5,000 words — below the threshold above anyway.
   Use `yt-digest` to obtain a timestamped transcript and selected frames, then

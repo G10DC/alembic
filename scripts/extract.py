@@ -126,9 +126,8 @@ def extract_pdf(path):
     
     raise RuntimeError(
         "Image-only/Scanned PDF detected. This format requires OCR. "
-        "As per the G10DC skill specification, alembic does not implement raw OCR. "
-        "Please delegate the document extraction to the 'scribe' skill for preprocessing, "
-        "verification, and repair, and then feed the resulting digital text directly into alembic."
+        "alembic does not implement OCR: run `ocrmypdf --skip-text in.pdf out.pdf` (or "
+        "transcribe the pages with Claude) and feed the resulting text-layer PDF to alembic."
     )
 
 
