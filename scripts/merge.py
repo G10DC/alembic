@@ -1,119 +1,158 @@
+#!/usr/bin/env python3
+"""
+merge.py — Unisce i file chunk_<N>.md in un'unica guida di studio nel formato
+condiviso (vedi references/format.md): un solo "# Titolo", indice, capitoli
+"## N. Titolo", sezione "## Domande di verifica" e "## Glossario" generato
+dalle righe "**Termine**: definizione."
+
+Uso:
+    python merge.py <cartella_chunk> --output guida.md [--title "Titolo"]
+"""
+
 import argparse
 import re
+import sys
 from pathlib import Path
 
+CHUNK_NAME = re.compile(r"^chunk_(\d+)\.md$")
+QUESTIONS_HEADING = re.compile(r"^(#{2,3})\s+Domande di verifica\s*$", re.IGNORECASE)
+# Definizione: riga che INIZIA con "**Termine**:" (dopo un eventuale "- " o "* ").
+DEFINITION_LINE = re.compile(r"^(?:[-*•]\s+)?\*\*([^*]+)\*\*\s*:\s*(.*)$")
+MARKERS = ("🔴", "🟡", "🟢")
+
+
 def extract_terms_from_text(text, section_idx):
-    # Regex to find **term** followed by definition on the same line
-    # Match: * **term**: definition OR - **term** is definition
-    # We will search each line
+    """Raccoglie le definizioni: solo righe "**Termine**: definizione" (anche come
+    voce di elenco). Niente grassetti in mezzo alla frase né marcatori di priorità."""
     terms = {}
-    lines = text.splitlines()
-    for line in lines:
+    for line in text.splitlines():
         line = line.strip()
-        if line.startswith("#") or not line:
+        if not line or line.startswith("#"):
             continue
-        # Find all occurrences of **term**
-        matches = list(re.finditer(r"\*\*([^*]+)\*\*", line))
-        if matches:
-            for idx, match in enumerate(matches):
-                term = match.group(1).strip()
-                # Find definition: text after this term on the line
-                start_def = match.end()
-                # If there is another term after this on the same line, stop definition there
-                end_def = matches[idx+1].start() if idx+1 < len(matches) else len(line)
-                definition = line[start_def:end_def].strip()
-                # Clean up definition
-                definition = re.sub(r"^[:\-–\s\=]+", "", definition).strip()
-                # Remove common Italian verbs like "è", "significa", "si definisce come" from starting the definition
-                verbs_pattern = re.compile(
-                    r"^(si\s+definisce\s+come|significa|è|significano|"
-                    r"sono|si\s+intende\s+per|si\s+riferisce\s+a)\s+",
-                    re.IGNORECASE
-                )
-                definition = verbs_pattern.sub("", definition)
-                definition = definition.strip()
-                if definition and len(definition) > 3:
-                    if term not in terms:
-                        terms[term] = []
-                    terms[term].append(definition)
+        m = DEFINITION_LINE.match(line)
+        if not m:
+            continue
+        term, definition = m.group(1).strip(), m.group(2).strip()
+        if any(mk in definition for mk in MARKERS):
+            continue
+        definition = re.sub(
+            r"^(si\s+definisce\s+come|significa|è|significano|sono|si\s+intende\s+per|si\s+riferisce\s+a)\s+",
+            "", definition, flags=re.IGNORECASE).strip()
+        if term and len(definition) > 3:
+            terms.setdefault(term, []).append(definition)
     return terms
 
+
+def github_slug(heading):
+    """Ancora in stile GitHub: minuscolo, via la punteggiatura (restano lettere
+    accentate, cifre, '-' e '_'), spazi in '-'."""
+    return re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+
+
+def split_questions(content):
+    """Separa il blocco 'Domande di verifica' dal corpo del capitolo."""
+    body, questions = [], []
+    level = None
+    for line in content.splitlines():
+        m = QUESTIONS_HEADING.match(line)
+        if m:
+            level = len(m.group(1))
+            continue
+        if level is not None:
+            h = re.match(r"^(#+)\s", line)
+            if h and len(h.group(1)) <= level:
+                level = None
+            else:
+                questions.append(line)
+                continue
+        body.append(line)
+    return "\n".join(body).strip(), [q.strip() for q in questions if q.strip()]
+
+
+def list_chunks(condensed_dir, output):
+    if not condensed_dir.is_dir():
+        sys.exit(f"Errore: cartella non trovata: {condensed_dir}")
+    files = sorted(f for f in condensed_dir.glob("*.md") if f.resolve() != output.resolve())
+    bad = [f.name for f in files if not CHUNK_NAME.match(f.name)]
+    if bad:
+        sys.exit(
+            "Errore: nomi file non conformi (atteso chunk_<N>.md, es. chunk_1.md): "
+            + ", ".join(bad)
+        )
+    if not files:
+        sys.exit(f"Errore: nessun file chunk_<N>.md in {condensed_dir}")
+    return sorted(files, key=lambda p: int(CHUNK_NAME.match(p.name).group(1)))
+
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Merge condensed chunk_*.md files into one study guide with a TOC and glossary."
-    )
-    parser.add_argument("condensed_dir", help="Directory containing chunk_<N>.md files")
-    parser.add_argument("--output", required=True, help="Path to write the merged Markdown file")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("condensed_dir", help="Cartella con i file chunk_<N>.md")
+    parser.add_argument("--output", required=True, help="Percorso del file Markdown da scrivere")
+    parser.add_argument("--title", default="Guida di studio",
+                        help="Titolo della guida (consigliato: nome del libro o della dispensa)")
     args = parser.parse_args()
 
-    condensed_dir = Path(args.condensed_dir)
-    output_file = Path(args.output)
+    chunk_files = list_chunks(Path(args.condensed_dir), Path(args.output))
 
-    chunk_files = sorted(list(condensed_dir.glob("chunk_*.md")), key=lambda p: int(p.stem.split("_")[1]))
-    
-    sections_text = []
-    toc = ["# Table of Contents\n"]
-    glossary_data = {}
-    
+    chapters, toc, questions_out = [], [], []
+    glossary = {}
+    seen_slugs = {}
+
     for idx, path in enumerate(chunk_files, start=1):
-        content = path.read_text(encoding="utf-8")
-        sections_text.append(content)
-        
-        # Build TOC entry: search for heading in file
-        heading = f"Capitolo/Sezione {idx}"
-        for line in content.splitlines():
-            if line.startswith("## "):
-                heading = line.replace("## ", "").strip()
-                break
-        
-        anchor = heading.lower().replace(" ", "-").replace("/", "").replace("(", "").replace(")", "").replace(".", "")
-        toc.append(f"- [{heading}](#{anchor})")
-        
-        # Extract terms
-        chunk_terms = extract_terms_from_text(content, idx)
-        for term, defs in chunk_terms.items():
-            lower_term = term.lower()
-            if lower_term not in glossary_data:
-                glossary_data[lower_term] = {"original_case": term, "definitions": []}
-            for d in defs:
-                glossary_data[lower_term]["definitions"].append((idx, d))
-                
-    # Build final markdown
-    full_markdown = []
-    full_markdown.append("# Modelli di Amministrazioni Pubbliche — Studio Guidato")
-    full_markdown.append("> Condensato da Alembic con preservazione integrale dei concetti.\n")
-    
-    full_markdown.append("\n".join(toc))
-    full_markdown.append("\n---\n")
-    
-    # Add body sections
-    full_markdown.append("\n\n---\n\n".join(sections_text))
-    full_markdown.append("\n\n---\n\n")
-    
-    # Add Glossary
-    full_markdown.append("# Glossario dei Termini Chiave")
-    
-    sorted_terms = sorted(glossary_data.keys())
-    for t_lower in sorted_terms:
-        term_info = glossary_data[t_lower]
-        term_name = term_info["original_case"]
-        definitions = term_info["definitions"]
-        
-        # Deduplicate identical definitions
-        seen_defs = set()
-        unique_defs = []
-        for sec, d in definitions:
-            clean_d = d.lower().strip()
-            if clean_d not in seen_defs:
-                seen_defs.add(clean_d)
-                unique_defs.append((sec, d))
-                
-        full_markdown.append(f"### {term_name}")
-        for sec, d in unique_defs:
-            full_markdown.append(f"- **(Sezione {sec})**: {d}")
-            
-    output_file.write_text("\n\n".join(full_markdown), encoding="utf-8")
-    print(f"Merged output saved to {output_file}")
+        body, questions = split_questions(path.read_text(encoding="utf-8"))
+        lines = body.splitlines()
+
+        # Intestazione del capitolo: "## N. Titolo". Se manca o non è numerata la sistemo.
+        pos = next((i for i, l in enumerate(lines) if l.startswith("## ")), None)
+        if pos is None:
+            lines.insert(0, f"## {idx}. Sezione {idx}")
+            pos = 0
+        heading = lines[pos][3:].strip()
+        if not re.match(r"^\d+\.\s", heading):
+            heading = f"{idx}. {heading}"
+            lines[pos] = f"## {heading}"
+        body = "\n".join(lines)
+        chapters.append(body)
+
+        slug = github_slug(heading)
+        n = seen_slugs.get(slug, 0)
+        seen_slugs[slug] = n + 1
+        toc.append(f"- [{heading}](#{slug}{f'-{n}' if n else ''})")
+
+        if questions:
+            block = [f"### Domande — {re.sub(r'^\d+\.\s*', '', heading)}", ""]
+            for q in questions:
+                if q.startswith("Domanda:") and block[-1] != "":
+                    block.append("")
+                block.append(q)
+            questions_out.append("\n".join(block))
+
+        for term, defs in extract_terms_from_text(body, idx).items():
+            entry = glossary.setdefault(term.lower(), {"term": term, "defs": []})
+            entry["defs"].extend((idx, d) for d in defs)
+
+    out = [f"# {args.title}", "## Indice\n\n" + "\n".join(toc), "\n\n".join(chapters)]
+    if questions_out:
+        out.append("## Domande di verifica\n\n" + "\n\n".join(questions_out))
+
+    if glossary:
+        gl = ["## Glossario"]
+        for key in sorted(glossary):
+            info = glossary[key]
+            unique, seen = [], set()
+            for sec, d in info["defs"]:
+                if d.lower() not in seen:
+                    seen.add(d.lower())
+                    unique.append((sec, d))
+            for sec, d in unique:
+                d = d if d.endswith((".", "!", "?")) else d + "."
+                label = f" (cap. {sec})" if len(unique) > 1 else ""
+                gl.append(f"**{info['term']}**: {d}{label}")
+        out.append("\n\n".join(gl))
+
+    Path(args.output).write_text("\n\n".join(out) + "\n", encoding="utf-8")
+    print(f"Guida scritta in {args.output}: {len(chapters)} capitoli, {len(glossary)} termini nel glossario.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-extract_text.py — Extract raw text from a book file (PDF/EPUB/DOCX/TXT/MD) and
+extract.py — Extract raw text from a book file (PDF/EPUB/DOCX/TXT/MD) and
 split it into heuristically-detected sections/chapters.
 
 This is a starting point for the orchestrating agent, not ground truth: the
@@ -8,7 +8,7 @@ agent is expected to look at manifest.json and re-chunk if the detected
 boundaries look wrong (too many/few sections, tiny fragments, etc.).
 
 Usage:
-    python3 extract_text.py <input_file> --outdir <output_dir>
+    python extract.py <input_file> --outdir <output_dir>
 
 Output:
     <outdir>/sections/001_<slug>.txt, 002_<slug>.txt, ...

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-keyword_coverage.py — Flags high-frequency, non-generic terms from the
+coverage.py — Flags high-frequency, non-generic terms from the
 original book text that are missing from the condensed Markdown output.
 
 This is a recall net, not a verdict: the orchestrating agent should skim the
@@ -8,7 +8,7 @@ flagged list and judge which misses are real (a dropped concept) vs. noise
 (a one-off character name, boilerplate).
 
 Usage:
-    python3 keyword_coverage.py --original <dir_or_file> --condensed <file.md> \
+    python coverage.py --original <dir_or_file> --condensed <file.md> \
         --report <out.json> [--top-n 150] [--min-len 4]
 """
 

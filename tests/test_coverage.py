@@ -54,6 +54,18 @@ class TestLoadOriginal(unittest.TestCase):
             self.assertNotIn("ignored", result)
 
 
+class TestLoadOriginalSkipsSplit(unittest.TestCase):
+    def test_split_subfolder_is_not_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "a.txt").write_text("alfa", encoding="utf-8")
+            (tmp / "_split").mkdir()
+            (tmp / "_split" / "orig.txt").write_text("duplicato", encoding="utf-8")
+            text = load_original(tmp)
+            self.assertIn("alfa", text)
+            self.assertNotIn("duplicato", text)
+
+
 class TestCoverageEndToEnd(unittest.TestCase):
     def test_reports_missing_and_present_terms(self):
         import subprocess
@@ -72,7 +84,8 @@ class TestCoverageEndToEnd(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(script), "--original", str(original),
                  "--condensed", str(condensed), "--report", str(report), "--min-len", "4"],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8",
+                env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(report.read_text(encoding="utf-8"))

@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-chunk.py — Split an oversized section (from extract.py's manifest, one whose
-word count is too large to condense in one pass) into paragraph-aligned
-chunks of roughly --max-words each, and rewrite that entry into the manifest
-as multiple chunk entries.
+chunk.py — Spezza una sezione troppo lunga (dal manifest di extract.py) in
+blocchi allineati ai paragrafi di circa --max-words parole. Il file originale
+NON viene cancellato: finisce in sections/_split/ (che coverage.py non legge,
+così il testo non è contato due volte); nel manifest la sua voce è sostituita
+dai nuovi blocchi e gli indici sono rinumerati da 1 senza collisioni. Un secondo
+lancio sullo stesso percorso dà errore (il file non c'è più).
 
-Usage:
-    python3 chunk.py <section_txt_file> --outdir <dir_containing_manifest.json> [--max-words 4000]
+Uso:
+    python chunk.py <file_sezione.txt> --outdir <cartella_con_manifest.json> [--max-words 4000]
 """
 
 import argparse
 import json
+import shutil
+import sys
 from pathlib import Path
 
 
@@ -52,9 +56,9 @@ def chunk_title(chunk_text, index):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("section_file", help="Path to the oversized section .txt file to split")
-    parser.add_argument("--outdir", required=True, help="Directory containing sections/ and manifest.json")
-    parser.add_argument("--max-words", type=int, default=4000, help="Target max words per chunk")
+    parser.add_argument("section_file", help="Percorso del file .txt della sezione da spezzare")
+    parser.add_argument("--outdir", required=True, help="Cartella con sections/ e manifest.json")
+    parser.add_argument("--max-words", type=int, default=4000, help="Parole massime per blocco")
     args = parser.parse_args()
 
     src_file = Path(args.section_file)
@@ -62,32 +66,55 @@ def main():
     sec_dir = outdir / "sections"
     sec_dir.mkdir(parents=True, exist_ok=True)
 
+    if not src_file.is_file():
+        done = sec_dir / "_split" / src_file.name
+        hint = f" (già spezzato? l'originale è in {done})" if done.is_file() else ""
+        sys.exit(f"Errore: file non trovato: {src_file}{hint}")
+
     text = src_file.read_text(encoding="utf-8")
     chunks = chunk_paragraphs(text, args.max_words)
+    if len(chunks) <= 1:
+        print(f"{src_file.name}: nessuna divisione necessaria (max {args.max_words} parole).")
+        return
 
-    # Remove the original oversized file now that it's split.
-    src_file.unlink()
+    manifest_path = outdir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else []
 
+    # Voce originale da sostituire (confronto sui percorsi risolti).
+    src_resolved = src_file.resolve()
+    pos = next((i for i, m in enumerate(manifest) if Path(m["path"]).resolve() == src_resolved), None)
+    base_title = manifest[pos]["title"] if pos is not None else None
+
+    # Nomi derivati dal file d'origine: nessuna collisione con altre sezioni.
     new_entries = []
     for i, chunk_text in enumerate(chunks, start=1):
-        fname = f"{i:03d}_chunk_{i:02d}.txt"
-        path = sec_dir / fname
+        path = sec_dir / f"{src_file.stem}_parte_{i:02d}.txt"
         path.write_text(chunk_text, encoding="utf-8")
-        title = chunk_title(chunk_text, i)
+        title = f"{base_title} (parte {i}/{len(chunks)})" if base_title else chunk_title(chunk_text, i)
         new_entries.append({
-            "index": i,
-            "title": f"Section {i} - {title}" if title else f"Section {i}",
+            "index": 0,  # assegnato sotto
+            "title": title,
             "path": str(path),
             "word_count": word_count(chunk_text),
             "detection_method": "paragraph_window",
         })
 
-    manifest_path = outdir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else []
-    manifest.extend(new_entries)
+    if pos is None:
+        manifest.extend(new_entries)
+    else:
+        manifest[pos:pos + 1] = new_entries
+    for n, entry in enumerate(manifest, start=1):
+        entry["index"] = n
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"Split {src_file.name} into {len(new_entries)} chunks.")
+    # L'originale esce da sections/ (coverage.py legge i *.txt di quella cartella).
+    split_dir = sec_dir / "_split"
+    split_dir.mkdir(exist_ok=True)
+    dest = split_dir / src_file.name
+    shutil.move(str(src_file), str(dest))
+
+    print(f"{src_file.name} spezzato in {len(new_entries)} blocchi (originale spostato in {dest}).")
+    print(f"Manifest aggiornato: {manifest_path} ({len(manifest)} voci).")
 
 
 if __name__ == "__main__":
